@@ -1,0 +1,80 @@
+import pandas as pd
+import numpy as np
+
+# --- 1. Big Data Simulation & Setup (Using only numpy and pandas) ---
+N = 50000
+np.random.seed(42)
+df = pd.DataFrame({
+    'Customer_ID': range(1, N + 1),
+    'Recency': np.random.randint(1, 366, N),     # Days since last purchase (Lower is better)
+    'Frequency': np.random.randint(1, 51, N),     # Total number of purchases (Higher is better)
+    'Monetary': np.random.randint(500, 15001, N), # Total spend (Higher is better)
+})
+
+print("--- E-commerce RFM Segmentation (Single Package: pandas) ---")
+print(f"Simulated Data Size: {len(df)} records\n")
+
+# --- 2. RFM Scoring (Segmentation using Quantiles/Percentiles) ---
+# Assign scores based on quantiles (20%, 40%, 60%, 80%) for each metric.
+# 1 to 5 scoring system (5 is best).
+
+# Recency: Lower is better, so the scoring logic is reversed
+df['R_Score'] = pd.qcut(df['Recency'], q=5, labels=[5, 4, 3, 2, 1])
+
+# Frequency: Higher is better
+df['F_Score'] = pd.qcut(df['Frequency'], q=5, labels=[1, 2, 3, 4, 5])
+
+# Monetary: Higher is better
+df['M_Score'] = pd.qcut(df['Monetary'], q=5, labels=[1, 2, 3, 4, 5])
+
+# Combine scores into a single RFM_Score (e.g., 555 is best, 111 is worst)
+df['RFM_Score'] = df['R_Score'].astype(str) + df['F_Score'].astype(str) + df['M_Score'].astype(str)
+
+print("RFM Score Distribution (Top 5 scores):")
+print(df['RFM_Score'].value_counts().head(5))
+
+
+# --- 3. Segment Mapping and Analysis (Linking Scores to Decent Work) ---
+# Map the RFM Score to meaningful customer segments for actionable strategy.
+def segment_customers(rfm_score):
+    if rfm_score.startswith('5'):
+        if rfm_score.endswith('55'):
+            return '0: Champions (5xx)' # Best Customers
+        return '1: Loyal Customers (5x1-5x4)'
+    elif rfm_score.startswith('4'):
+        if rfm_score.endswith('4x') or rfm_score.endswith('5x'):
+            return '2: Potential Loyalists (44x-45x)'
+        return '3: Need Attention (41x-43x)'
+    elif rfm_score.startswith('1'):
+        if rfm_score.endswith('11'):
+            return '5: Lost Customers (111)' # Worst/At-Risk
+        return '4: Hibernating (1xx)'
+    return '6: Others (Average)' # Catch-all for other combinations
+
+df['Segment'] = df['RFM_Score'].apply(segment_customers)
+
+# Final Segment Summary
+segment_summary = df.groupby('Segment').agg(
+    Customer_Count=('Customer_ID', 'count'),
+    Avg_Recency=('Recency', 'mean'),
+    Avg_Frequency=('Frequency', 'mean'),
+    Avg_Monetary=('Monetary', 'mean')
+).sort_values(by='Avg_Monetary', ascending=False)
+
+# Add percentage of total customers
+segment_summary['Customer_Count (%)'] = (segment_summary['Customer_Count'] / N * 100).round(2)
+
+print("\n--- Final Customer Segment Analysis ---")
+print(segment_summary.round(2))
+
+# --- 4. SDG 8 (Decent Work & Economic Growth) Implication ---
+champions = segment_summary.index[0]
+lost_customers = segment_summary.index[-1]
+
+print("\n--- Key Insights and SDG 8 Contribution ---")
+print(f"**Highest Value Segment (Economic Growth):** **{champions}**")
+print(f"  - Strategy: Retain these high-profit customers with premium service. Maximizing their Lifetime Value ensures the company's financial stability, directly driving **Economic Growth** (SDG 8.1, 8.2).")
+
+print(f"\n**Most At-Risk Segment (Decent Work):** **{lost_customers}**")
+print(f"  - Strategy: Invest in 'win-back' campaigns and deep root-cause analysis (e.g., product quality, delivery issues). Successful retention stabilizes sales forecasts and revenue, which is critical for providing **Decent Work** (SDG 8.5) and job security for employees (e.g., logistics, customer support).")
+print("  - Data-driven segmentation allows for efficient resource allocation, preventing waste and promoting sustainable and inclusive economic productivity (SDG 8.4).")
